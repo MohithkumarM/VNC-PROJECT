@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - VNC Security Monitor</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .settings-page { padding: 30px; }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .page-header h1 { font-size: 28px; display: flex; align-items: center; gap: 15px; }
+        .page-header h1 i { color: var(--accent-primary); }
+        .settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px; }
+        .settings-card { background: var(--bg-secondary); border-radius: 12px; padding: 25px; box-shadow: var(--box-shadow); }
+        .settings-card h3 { font-size: 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; padding-bottom: 15px; border-bottom: 1px solid var(--bg-tertiary); }
+        .settings-card h3 i { color: var(--accent-primary); }
+        .setting-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid var(--bg-tertiary); }
+        .setting-item:last-child { border-bottom: none; }
+        .setting-info h4 { font-size: 14px; margin-bottom: 5px; }
+        .setting-info p { font-size: 12px; color: var(--text-muted); }
+        .toggle-switch { position: relative; width: 50px; height: 26px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-tertiary); border-radius: 26px; transition: 0.3s; }
+        .toggle-slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background: var(--text-secondary); border-radius: 50%; transition: 0.3s; }
+        input:checked + .toggle-slider { background: var(--accent-primary); }
+        input:checked + .toggle-slider:before { transform: translateX(24px); background: white; }
+        .input-field { width: 150px; padding: 8px 12px; background: var(--bg-tertiary); border: none; border-radius: 6px; color: var(--text-primary); font-size: 14px; }
+        .select-field { width: 150px; padding: 8px 12px; background: var(--bg-tertiary); border: none; border-radius: 6px; color: var(--text-primary); font-size: 14px; cursor: pointer; }
+        .save-section { margin-top: 30px; display: flex; justify-content: flex-end; gap: 15px; }
+        @media (max-width: 900px) { .settings-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-shield-alt logo-icon"></i>
+            <h2>VNC Security</h2>
+        </div>
+        <ul class="nav-menu">
+            <li class="nav-item">
+                <a href="/" class="nav-link">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/alerts" class="nav-link">
+                    <i class="fas fa-bell"></i>
+                    <span>Alerts</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/reports" class="nav-link">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Reports</span>
+                </a>
+            </li>
+            <li class="nav-item active">
+                <a href="/settings" class="nav-link">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="top-navbar">
+            <div class="navbar-left">
+                <button class="menu-toggle" id="menu-toggle"><i class="fas fa-bars"></i></button>
+                <h1>System Settings</h1>
+            </div>
+        </header>
+
+        <div class="settings-page">
+            <div class="page-header">
+                <h1><i class="fas fa-cog"></i> Configuration</h1>
+            </div>
+
+            <div class="settings-grid">
+                <!-- Monitoring Settings -->
+                <div class="settings-card">
+                    <h3><i class="fas fa-eye"></i> Monitoring</h3>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h4>Real-time Monitoring</h4>
+                            <p>Enable continuous VNC traffic monitoring</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="realtime-monitoring" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h4>VNC Port Range</h4>
+                            <p>Ports to monitor for VNC traffic</p>
+                        </div>
+                        <input type="text" class="input-field" value="5900-5910" id="vnc-ports">
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h4>Poll Interval</h4>
+                            <p>Data refresh frequency (seconds)</p>
+                        </div>
+                        <input type="number" class="input-field" value="3" min="1" max="60" id="poll-interval">
+                    </div>
+                </div>
+
+                <!-- Alert Settings -->
+                <div class="settings-card">
+                    <h3><i class="fas fa-bell"></i> Alerts</h3>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h4>Enable Alerts</h4>
+                            <p>Show desktop notifications for threats</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="enable-alerts" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h4>Sound Alerts</h4>
+                            <p>Play sound on critical threats</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="sound-alerts">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h4>Alert Threshold</h4>
+                            <p>Minimum severity to trigger alert</p>
+                        </div>
+                        <select class="select-field" id="alert-threshold">
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- ML Settings -->
+                <div class="settings-card">
+                    <h3><i class="fas fa-brain"></i> Machine Learning</h3>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h4>Enable ML Detection</h4>
+                            <p>Use ML models for threat detection</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="ml-enabled" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h4>Detection Model</h4>
+                            <p>Primary model for predictions</p>
+                        </div>
+                        <select class="select-field" id="detection-model">
+                            <option value="ensemble" selected>Ensemble (RF + AE)</option>
+                            <option value="rf">Random Forest</option>
+                            <option value="ae">Autoencoder</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h4>Confidence Threshold</h4>
+                            <p>Min confidence for predictions (%)</p>
+                        </div>
+                        <input type="number" class="input-field" value="70" min="50" max="99" id="confidence-threshold">
+                    </div>
+                </div>
+
+                <!-- System Settings -->
+                <div class="settings-card">
+                    <h3><i class="fas fa-server"></i> System</h3>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h4>Debug Mode</h4>
+                            <p>Enable verbose logging</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="debug-mode">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h4>Data Retention</h4>
+                            <p>Days to keep traffic data</p>
+                        </div>
+                        <input type="number" class="input-field" value="30" min="1" max="365" id="data-retention">
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h4>Max Records</h4>
+                            <p>Maximum records in memory</p>
+                        </div>
+                        <input type="number" class="input-field" value="10000" min="1000" max="100000" id="max-records">
+                    </div>
+                </div>
+            </div>
+
+            <div class="save-section">
+                <button class="btn-secondary" onclick="resetSettings()">
+                    <i class="fas fa-undo"></i> Reset Defaults
+                </button>
+                <button class="btn-primary" onclick="saveSettings()">
+                    <i class="fas fa-save"></i> Save Settings
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script>
+        // Load settings from localStorage
+        function loadSettings() {
+            const settings = JSON.parse(localStorage.getItem('vncSettings') || '{}');
+            
+            Object.keys(settings).forEach(key => {
+                const element = document.getElementById(key);
+                if (element) {
+                    if (element.type === 'checkbox') {
+                        element.checked = settings[key];
+                    } else {
+                        element.value = settings[key];
+                    }
+                }
+            });
+        }
+
+        function saveSettings() {
+            const settings = {
+                'realtime-monitoring': document.getElementById('realtime-monitoring').checked,
+                'vnc-ports': document.getElementById('vnc-ports').value,
+                'poll-interval': document.getElementById('poll-interval').value,
+                'enable-alerts': document.getElementById('enable-alerts').checked,
+                'sound-alerts': document.getElementById('sound-alerts').checked,
+                'alert-threshold': document.getElementById('alert-threshold').value,
+                'ml-enabled': document.getElementById('ml-enabled').checked,
+                'detection-model': document.getElementById('detection-model').value,
+                'confidence-threshold': document.getElementById('confidence-threshold').value,
+                'debug-mode': document.getElementById('debug-mode').checked,
+                'data-retention': document.getElementById('data-retention').value,
+                'max-records': document.getElementById('max-records').value
+            };
+            
+            localStorage.setItem('vncSettings', JSON.stringify(settings));
+            showToast('success', 'Settings Saved', 'Your configuration has been saved');
+        }
+
+        function resetSettings() {
+            if (!confirm('Reset all settings to defaults?')) return;
+            localStorage.removeItem('vncSettings');
+            location.reload();
+        }
+
+        function showToast(type, title, message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<div class="toast-content"><div class="toast-title">${title}</div><div class="toast-message">${message}</div></div>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        loadSettings();
+    </script>
+</body>
+</html>

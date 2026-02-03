@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alerts - VNC Security Monitor</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .alerts-page { padding: 30px; }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .page-header h1 { font-size: 28px; display: flex; align-items: center; gap: 15px; }
+        .page-header h1 i { color: var(--accent-primary); }
+        .filter-bar { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter-btn { padding: 10px 20px; background: var(--bg-tertiary); border: none; border-radius: 8px; color: var(--text-secondary); cursor: pointer; transition: all 0.3s; }
+        .filter-btn:hover, .filter-btn.active { background: var(--accent-primary); color: var(--bg-primary); }
+        .alerts-table { width: 100%; background: var(--bg-secondary); border-radius: 12px; overflow: hidden; box-shadow: var(--box-shadow); }
+        .alerts-table table { width: 100%; border-collapse: collapse; }
+        .alerts-table th, .alerts-table td { padding: 15px 20px; text-align: left; }
+        .alerts-table th { background: var(--bg-tertiary); color: var(--text-primary); font-weight: 600; }
+        .alerts-table tr:hover { background: rgba(255,255,255,0.02); }
+        .alerts-table td { border-bottom: 1px solid var(--bg-tertiary); }
+        .severity-badge { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .severity-badge.danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+        .severity-badge.warning { background: rgba(251, 191, 36, 0.15); color: var(--warning); }
+        .severity-badge.info { background: rgba(59, 130, 246, 0.15); color: var(--info); }
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+        .empty-state i { font-size: 64px; margin-bottom: 20px; color: var(--success); }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-shield-alt logo-icon"></i>
+            <h2>VNC Security</h2>
+        </div>
+        <ul class="nav-menu">
+            <li class="nav-item">
+                <a href="/" class="nav-link">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item active">
+                <a href="/alerts" class="nav-link">
+                    <i class="fas fa-bell"></i>
+                    <span>Alerts</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/reports" class="nav-link">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Reports</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/settings" class="nav-link">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="top-navbar">
+            <div class="navbar-left">
+                <button class="menu-toggle" id="menu-toggle"><i class="fas fa-bars"></i></button>
+                <h1>Security Alerts</h1>
+            </div>
+        </header>
+
+        <div class="alerts-page">
+            <div class="page-header">
+                <h1><i class="fas fa-bell"></i> Alert Management</h1>
+                <div>
+                    <button class="btn-secondary" onclick="refreshAlerts()">
+                        <i class="fas fa-sync"></i> Refresh
+                    </button>
+                    <button class="btn-secondary" onclick="clearAllAlerts()">
+                        <i class="fas fa-trash"></i> Clear All
+                    </button>
+                </div>
+            </div>
+
+            <div class="filter-bar">
+                <button class="filter-btn active" data-filter="all">All Alerts</button>
+                <button class="filter-btn" data-filter="danger">Critical</button>
+                <button class="filter-btn" data-filter="warning">Warning</button>
+                <button class="filter-btn" data-filter="info">Info</button>
+            </div>
+
+            <div class="alerts-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Type</th>
+                            <th>Severity</th>
+                            <th>Source IP</th>
+                            <th>Message</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alerts-table-body">
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <i class="fas fa-check-circle"></i>
+                                    <h3>No Alerts</h3>
+                                    <p>Your system is running smoothly with no security alerts.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script>
+        // Fetch and display alerts
+        async function loadAlerts(filter = 'all') {
+            try {
+                const response = await fetch('/api/alerts?limit=100');
+                const data = await response.json();
+                renderAlerts(data.alerts || [], filter);
+            } catch (error) {
+                console.error('Failed to load alerts:', error);
+            }
+        }
+
+        function renderAlerts(alerts, filter) {
+            const tbody = document.getElementById('alerts-table-body');
+            
+            let filtered = alerts;
+            if (filter !== 'all') {
+                filtered = alerts.filter(a => (a.severity || '').toLowerCase() === filter);
+            }
+            
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="fas fa-check-circle"></i><h3>No Alerts</h3><p>No alerts match your filter criteria.</p></div></td></tr>`;
+                return;
+            }
+            
+            tbody.innerHTML = filtered.map(alert => `
+                <tr>
+                    <td>${new Date(alert.timestamp).toLocaleString()}</td>
+                    <td>${alert.alert_type || alert.type || 'Security Alert'}</td>
+                    <td><span class="severity-badge ${(alert.severity || 'info').toLowerCase()}">${alert.severity || 'Info'}</span></td>
+                    <td>${alert.source_ip || 'N/A'}</td>
+                    <td>${alert.message || alert.description || '-'}</td>
+                    <td><button class="btn-secondary" onclick="dismissAlert('${alert.id}')"><i class="fas fa-times"></i></button></td>
+                </tr>
+            `).join('');
+        }
+
+        async function clearAllAlerts() {
+            if (!confirm('Clear all alerts?')) return;
+            try {
+                await fetch('/api/alerts/clear', { method: 'POST' });
+                loadAlerts();
+                showToast('success', 'Cleared', 'All alerts have been cleared');
+            } catch (e) {
+                showToast('danger', 'Error', 'Failed to clear alerts');
+            }
+        }
+
+        function refreshAlerts() { loadAlerts(); }
+
+        // Filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                loadAlerts(btn.dataset.filter);
+            });
+        });
+
+        function showToast(type, title, message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<div class="toast-content"><div class="toast-title">${title}</div><div class="toast-message">${message}</div></div>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // Load on page load
+        loadAlerts();
+        setInterval(() => loadAlerts(), 5000);
+    </script>
+</body>
+</html>

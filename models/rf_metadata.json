@@ -1,0 +1,36 @@
+{
+  "feature_names": [
+    "PacketSize",
+    "ResponseTime",
+    "Protocol",
+    "SrcIP",
+    "DstIP",
+    "SrcPort",
+    "DstPort",
+    "PacketRate",
+    "FlowDuration",
+    "NumPackets",
+    "PayloadSize",
+    "FlagCount",
+    "AnomalyScore",
+    "Entropy",
+    "BytesSent",
+    "BytesReceived",
+    "FlowRate",
+    "ActiveTime",
+    "IdleTime"
+  ],
+  "metrics": {
+    "train_accuracy": 0.875625,
+    "val_accuracy": 0.7,
+    "precision": 0.49,
+    "recall": 0.7,
+    "f1_score": 0.5764705882352941,
+    "roc_auc": 0,
+    "cv_f1_mean": 0.5751636489647405,
+    "cv_f1_std": 0.001600667168830715
+  },
+  "n_estimators": 100,
+  "max_depth": 20,
+  "trained_at": "2026-01-30T23:55:52.835040"
+}

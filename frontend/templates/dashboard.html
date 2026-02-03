@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VNC Security Monitor</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=1.1">
+</head>
+<body>
+    
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-shield-alt logo-icon"></i>
+            <h2>VNC Security</h2>
+        </div>
+        
+        <ul class="nav-menu">
+            <li class="nav-item active">
+                <a href="#" class="nav-link">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/alerts" class="nav-link">
+                    <i class="fas fa-bell"></i>
+                    <span>Alerts</span>
+                    <span class="badge" id="alert-badge">0</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/reports" class="nav-link">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Reports</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/settings" class="nav-link">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </li>
+        </ul>
+        
+        <div class="sidebar-footer">
+            <div class="system-status">
+                <div class="status-dot online" id="system-status-dot"></div>
+                <span id="system-status-text">Online</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Top Navbar -->
+        <nav class="top-navbar">
+            <div class="navbar-left" style="display: flex; align-items: center;">
+                <button class="menu-toggle" id="menu-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1>Security Dashboard</h1>
+            </div>
+            
+            <div class="navbar-right">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Search logs...">
+                </div>
+                
+                <button class="notification-btn" id="notification-btn">
+                    <i class="fas fa-bell"></i>
+                    <span class="notification-count" id="notification-count">0</span>
+                </button>
+                
+                <div class="user-profile">
+                    <i class="fas fa-user-circle fa-lg"></i>
+                    <span>Admin</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Dashboard Content -->
+        <div class="dashboard-content">
+            
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon connections">
+                        <i class="fas fa-network-wired"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="total-connections">0</h3>
+                        <p>Total Connections</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon threats">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="active-threats">0</h3>
+                        <p>Active Threats</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon normal">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="normal-traffic">100%</h3>
+                        <p>Normal Traffic</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="color: #6c757d;">
+                        <i class="fas fa-server"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="system-status">Online</h3>
+                        <p>System Status</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="charts-grid">
+                <!-- Real-time Traffic -->
+                <div class="chart-card large">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-chart-line"></i> Real-time Network Traffic</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="trafficChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Traffic Distribution -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-chart-pie"></i> Traffic Distribution</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="distributionChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Attack Types -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-bug"></i> Attack Types Detected</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="attackTypesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alerts Section -->
+            <div class="alerts-section" id="alerts">
+                <div class="section-header">
+                    <h3><i class="fas fa-bell"></i> Recent Alerts</h3>
+                    <button class="btn-secondary" id="btn-clear-alerts">
+                        <i class="fas fa-trash"></i> Clear All
+                    </button>
+                </div>
+                <div class="alerts-list" id="alerts-list">
+                    <!-- Alerts will be injected here -->
+                    <div class="no-alerts">
+                        <i class="fas fa-check-circle"></i>
+                        <p>System Secure - No active threats</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ML Model Status -->
+            <div class="ml-status-section">
+                <div class="section-header">
+                    <h3><i class="fas fa-brain"></i> ML Model Status</h3>
+                    <button class="btn-secondary" id="btn-reload-models">
+                        <i class="fas fa-sync"></i> Reload Models
+                    </button>
+                </div>
+                
+                <div class="ml-models-grid">
+                    <!-- Random Forest -->
+                    <div class="ml-model-card" id="rf-status">
+                        <i class="fas fa-tree model-icon"></i>
+                        <div class="model-info">
+                            <h4>Random Forest</h4>
+                            <span class="model-status">Loading...</span>
+                        </div>
+                    </div>
+                    
+                    <!-- SVM -->
+                    <div class="ml-model-card" id="svm-status">
+                        <i class="fas fa-vector-square model-icon"></i>
+                        <div class="model-info">
+                            <h4>SVM Classifier</h4>
+                            <span class="model-status">Loading...</span>
+                        </div>
+                    </div>
+                    
+                    <!-- XGBoost -->
+                    <div class="ml-model-card" id="xgb-status">
+                         <i class="fas fa-rocket model-icon"></i>
+                        <div class="model-info">
+                            <h4>XGBoost</h4>
+                            <span class="model-status">Loading...</span>
+                        </div>
+                    </div>
+                    
+                    <!-- CNN -->
+                    <div class="ml-model-card" id="cnn-status">
+                        <i class="fas fa-network-wired model-icon"></i>
+                        <div class="model-info">
+                            <h4>CNN (Deep Learning)</h4>
+                            <span class="model-status">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <button class="action-btn" id="btn-sim-normal">
+                    <i class="fas fa-play"></i> Simulate Normal Traffic
+                </button>
+                <button class="action-btn danger" id="btn-sim-attack">
+                    <i class="fas fa-skull"></i> Simulate Attack
+                </button>
+                <button class="action-btn" id="btn-test-pred">
+                    <i class="fas fa-flask"></i> Test Prediction
+                </button>
+                <button class="action-btn" id="btn-gen-report">
+                    <i class="fas fa-file-pdf"></i> Generate Report
+                </button>
+            </div>
+            
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/charts.js') }}?v=2.0"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=2.0"></script>
+</body>
+</html>

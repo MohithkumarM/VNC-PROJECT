@@ -1,0 +1,1183 @@
+================================================================================
+                    VNC SECURITY MONITOR - COMPLETE DOCUMENTATION
+                    Data Exfiltration Detection System (A to Z Guide)
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1.  Project Overview
+2.  Problem Statement
+3.  Solution Approach
+4.  System Architecture
+5.  Technology Stack
+6.  Features List
+7.  Machine Learning Models (Detailed)
+8.  How the Detection Works (Step by Step)
+9.  Project File Structure
+10. Installation Guide
+11. Running the System
+12. Dashboard Features
+13. API Endpoints (Full Reference)
+14. Attack Types Detected
+15. Configuration Options
+16. Deployment Guide (Render)
+17. Troubleshooting
+18. Future Improvements
+
+================================================================================
+1. PROJECT OVERVIEW
+================================================================================
+
+Project Name: VNC Security Monitor
+Type: Machine Learning-based Intrusion Detection System (IDS)
+Domain: Cybersecurity / Network Security
+Target: VNC (Virtual Network Computing) Protocol
+
+Purpose:
+--------
+This system monitors VNC connections in real-time and uses Machine Learning
+to detect data exfiltration attacks. Data exfiltration is when attackers
+steal sensitive data through network connections without authorization.
+
+VNC is a remote desktop protocol used to control computers remotely.
+Attackers can exploit VNC connections to:
+- Steal files
+- Capture screens
+- Log keystrokes
+- Hijack clipboard data
+- Launch denial-of-service attacks
+
+This system detects these attacks automatically using AI.
+
+================================================================================
+2. PROBLEM STATEMENT
+================================================================================
+
+Traditional firewalls and antivirus software cannot detect sophisticated
+attacks on VNC connections because:
+
+1. VNC traffic looks like normal network traffic
+2. Attackers use encrypted channels
+3. Small data transfers go unnoticed
+4. Pattern-based detection fails against new attacks
+
+Challenge:
+----------
+How can we detect malicious activity in VNC traffic in real-time without
+blocking legitimate users?
+
+Solution:
+---------
+Use Machine Learning to analyze traffic patterns and behavior, not just
+signatures. ML models can learn what "normal" looks like and flag anomalies.
+
+================================================================================
+3. SOLUTION APPROACH
+================================================================================
+
+This project uses an ENSEMBLE approach - combining multiple ML models:
+
+1. Random Forest Classifier
+   - Decision tree-based
+   - Good for structured data
+   - Fast predictions
+
+2. SVM (Support Vector Machine)
+   - Linear classification
+   - Good for binary decisions (attack/normal)
+
+3. XGBoost
+   - Gradient boosting
+   - High accuracy
+   - Handles imbalanced data
+
+4. CNN (Convolutional Neural Network) - Optional
+   - Deep learning
+   - Pattern recognition
+   - Requires TensorFlow
+
+5. Autoencoder (Anomaly Detection) - Optional
+   - Unsupervised learning
+   - Learns normal patterns
+   - Flags anything unusual
+
+The ENSEMBLE combines all model predictions using MAJORITY VOTING:
+- If 3 out of 4 models say "Attack", the final result is "Attack"
+- This reduces false positives and increases reliability
+
+================================================================================
+4. SYSTEM ARCHITECTURE
+================================================================================
+
+High-Level Architecture:
+------------------------
+
++------------------+     +------------------+     +------------------+
+|   VNC Traffic    | --> | Feature Extractor| --> |   ML Ensemble    |
+|   (Simulated)    |     | (27 features)    |     | (RF, SVM, XGB)   |
++------------------+     +------------------+     +------------------+
+                                                          |
+                                                          v
++------------------+     +------------------+     +------------------+
+|   Dashboard      | <-- |   Flask API      | <-- |   Prediction     |
+|   (Browser)      |     |   (REST)         |     |   + Alert        |
++------------------+     +------------------+     +------------------+
+
+Component Details:
+------------------
+
+1. Frontend (Browser):
+   - HTML/CSS/JavaScript
+   - Chart.js for visualizations
+   - Real-time updates every 3 seconds
+   - Dark theme UI
+
+2. Backend (Flask API):
+   - Python Flask framework
+   - REST API endpoints
+   - Serves dashboard templates
+   - Handles predictions
+
+3. ML Models:
+   - Trained on Kaggle cybersecurity dataset
+   - Saved as .joblib and .h5 files
+   - Loaded at startup
+
+4. Database:
+   - In-memory (Python dictionary)
+   - Stores alerts, traffic records, stats
+   - Resets on server restart
+
+5. Attack Simulator:
+   - Generates fake VNC traffic
+   - Creates attack patterns for demo
+   - No real network capture needed
+
+================================================================================
+5. TECHNOLOGY STACK
+================================================================================
+
+Backend:
+--------
+- Python 3.10+
+- Flask 2.3.3 (Web framework)
+- Flask-CORS (Cross-origin requests)
+- Gunicorn (Production server)
+
+Machine Learning:
+-----------------
+- scikit-learn 1.3.0 (RF, SVM)
+- XGBoost (Gradient boosting)
+- TensorFlow/Keras (CNN, Autoencoder) - Optional
+- NumPy, Pandas (Data processing)
+- joblib (Model serialization)
+
+Frontend:
+---------
+- HTML5, CSS3
+- JavaScript (Vanilla)
+- Chart.js (Charts)
+- Font Awesome (Icons)
+
+Visualization:
+--------------
+- Matplotlib, Seaborn, Plotly (Training analysis)
+
+Reports:
+--------
+- ReportLab, FPDF2 (PDF generation)
+
+================================================================================
+6. FEATURES LIST
+================================================================================
+
+Security Features:
+------------------
+[x] Real-time VNC traffic analysis
+[x] ML-based threat detection (Ensemble)
+[x] Instant alerts with severity levels
+[x] Protection advice for each attack type
+[x] Attack simulation for testing/demo
+
+Dashboard Features:
+-------------------
+[x] Dark theme professional UI
+[x] Real-time traffic chart (Normal/Suspicious/Attack)
+[x] Attack distribution chart
+[x] ML model status display
+[x] Alert management (view, clear)
+[x] System status indicator (Online/Offline)
+
+Reporting Features:
+-------------------
+[x] PDF report generation
+[x] CSV data export
+[x] Attack statistics summary
+
+API Features:
+-------------
+[x] RESTful API endpoints
+[x] Health check endpoint
+[x] Prediction endpoint
+[x] Simulation endpoint
+[x] Statistics endpoint
+
+================================================================================
+7. MACHINE LEARNING MODELS (DETAILED)
+================================================================================
+
+A. RANDOM FOREST CLASSIFIER
+----------------------------
+File: models/random_forest_model.joblib
+Scaler: models/rf_scaler.joblib
+
+How it works:
+- Creates 100 decision trees
+- Each tree votes on the prediction
+- Majority vote wins
+
+Features used: 27 numerical features extracted from traffic
+Accuracy: ~70-80% on test data
+
+Pros:
+- Fast training and prediction
+- Handles missing data
+- No scaling required (but we scale anyway)
+
+Cons:
+- Can overfit on small datasets
+- Less accurate than deep learning
+
+--------------------------------------------------------------------------------
+
+B. SVM (SUPPORT VECTOR MACHINE)
+-------------------------------
+File: models/svm_model.joblib
+Scaler: models/svm_scaler.joblib
+Label Encoder: models/svm_le.joblib
+
+How it works:
+- Finds a hyperplane that separates attack/normal
+- Uses kernel trick for non-linear separation
+
+Kernel: RBF (Radial Basis Function)
+C parameter: 1.0 (regularization)
+
+Pros:
+- Works well with high-dimensional data
+- Memory efficient
+
+Cons:
+- Slow on large datasets
+- Requires feature scaling
+
+--------------------------------------------------------------------------------
+
+C. XGBOOST (EXTREME GRADIENT BOOSTING)
+--------------------------------------
+File: models/xgboost_model.json
+Label Encoder: models/xgboost_le.joblib
+
+How it works:
+- Builds trees sequentially
+- Each tree corrects errors of previous trees
+- Uses gradient descent optimization
+
+Parameters:
+- max_depth: 6
+- learning_rate: 0.1
+- n_estimators: 100
+
+Pros:
+- Handles imbalanced data
+- Built-in regularization
+- Often wins ML competitions
+
+Cons:
+- More hyperparameters to tune
+- Can overfit if not careful
+
+--------------------------------------------------------------------------------
+
+D. AUTOENCODER (ANOMALY DETECTION)
+----------------------------------
+File: models/autoencoder_model.h5
+Threshold: models/autoencoder_threshold.json
+
+Architecture:
+Input (27) -> 64 -> 32 -> 16 -> 32 -> 64 -> Output (27)
+
+How it works:
+- Trained ONLY on normal traffic
+- Learns to compress and reconstruct normal patterns
+- If reconstruction error > threshold, it's an anomaly (attack)
+
+Activation: ReLU (hidden), Sigmoid (output)
+Loss: Mean Squared Error
+
+Pros:
+- Unsupervised (no attack labels needed)
+- Detects unknown attack types
+
+Cons:
+- Requires TensorFlow
+- Threshold tuning is tricky
+
+--------------------------------------------------------------------------------
+
+E. CNN (CONVOLUTIONAL NEURAL NETWORK) - Optional
+------------------------------------------------
+File: models/cnn_model.h5
+Scaler: models/cnn_scaler.joblib
+Label Encoder: models/cnn_le.joblib
+
+Architecture:
+- Reshapes features into 2D (like an image)
+- Applies convolution filters
+- Dense layers for classification
+
+Pros:
+- Can detect complex patterns
+- Works well with sequential data
+
+Cons:
+- Requires more data
+- Slower to train
+- Needs TensorFlow
+
+--------------------------------------------------------------------------------
+
+F. ENSEMBLE PREDICTOR (VOTING)
+------------------------------
+File: ml_models/ensemble_predictor.py
+
+How voting works:
+1. Each model makes a prediction
+2. Predictions are collected: [RF: Attack, SVM: Normal, XGB: Attack]
+3. Majority wins: Attack (2 votes) > Normal (1 vote)
+4. Confidence = votes_for_winner / total_votes = 66%
+
+Fallback:
+- If a model fails to load, it's excluded from voting
+- System works with even 1 model loaded
+
+================================================================================
+8. HOW THE DETECTION WORKS (STEP BY STEP)
+================================================================================
+
+STEP 1: Traffic Capture (Simulated)
+-----------------------------------
+In production, you would capture real VNC packets using tools like:
+- Scapy (Python library)
+- tcpdump
+- Wireshark
+
+In this demo, we SIMULATE traffic using the Attack Simulator.
+
+STEP 2: Feature Extraction
+--------------------------
+Each network connection is converted into 27 numerical features:
+
+| Feature         | Description                        | Example    |
+|-----------------|------------------------------------|------------|
+| PacketSize      | Size of packet in bytes            | 512        |
+| ResponseTime    | Time to get response (ms)          | 25.5       |
+| Protocol        | TCP/UDP (encoded as number)        | 1 (TCP)    |
+| SrcPort         | Source port number                 | 5900       |
+| DstPort         | Destination port number            | 49152      |
+| PacketRate      | Packets per second                 | 150.0      |
+| FlowDuration    | Duration of connection (ms)        | 5000       |
+| NumPackets      | Total packets in flow              | 100        |
+| PayloadSize     | Data payload size                  | 256        |
+| FlagCount       | TCP flags count                    | 3          |
+| AnomalyScore    | Pre-computed anomaly indicator     | 0.15       |
+| Entropy         | Randomness of payload              | 0.75       |
+| BytesSent       | Total bytes sent                   | 15000      |
+| BytesReceived   | Total bytes received               | 12000      |
+| FlowRate        | Bytes per second                   | 3000.0     |
+| ActiveTime      | Time connection was active         | 4500       |
+| IdleTime        | Time connection was idle           | 500        |
+| ... and more    |                                    |            |
+
+STEP 3: Feature Scaling
+-----------------------
+Features are normalized using StandardScaler:
+- Mean = 0, Standard Deviation = 1
+- This helps ML models converge faster
+
+STEP 4: Model Prediction
+------------------------
+Each model receives the scaled features and outputs:
+- Class label: "Normal", "DoS", "Malware", "PortScan", etc.
+- Probability/Confidence
+
+STEP 5: Ensemble Voting
+-----------------------
+All predictions are combined:
+- RF says: DoS
+- SVM says: Normal
+- XGBoost says: DoS
+- Final: DoS (majority)
+
+STEP 6: Alert Generation
+------------------------
+If attack detected:
+- Create alert with severity (warning/danger)
+- Add protection advice
+- Store in database
+- Send to dashboard
+
+STEP 7: Dashboard Update
+------------------------
+Every 3 seconds:
+- Frontend calls /api/stats
+- Updates charts and numbers
+- Shows new alerts
+
+================================================================================
+9. PROJECT FILE STRUCTURE
+================================================================================
+
+VNC-PROJECT/
+|
+|-- backend/                    # Flask backend
+|   |-- __init__.py
+|   |-- app.py                  # Flask app factory
+|   |-- config.py               # Configuration settings
+|   |-- database.py             # In-memory database
+|   |-- routes.py               # API endpoints
+|   |-- vnc_monitor.py          # VNC traffic monitor
+|   |-- feature_extractor.py    # Feature extraction
+|   |-- attack_simulator.py     # Attack simulation
+|   |-- protection.py           # Protection advice
+|   |-- generate_training_data.py
+|
+|-- ml_models/                  # ML model implementations
+|   |-- __init__.py
+|   |-- random_forest_detector.py
+|   |-- svm_detector.py
+|   |-- xgboost_detector.py
+|   |-- cnn_detector.py
+|   |-- autoencoder_detector.py
+|   |-- ensemble_predictor.py   # Voting ensemble
+|
+|-- models/                     # Trained model files
+|   |-- random_forest_model.joblib
+|   |-- rf_scaler.joblib
+|   |-- svm_model.joblib
+|   |-- svm_scaler.joblib
+|   |-- svm_le.joblib
+|   |-- xgboost_model.json
+|   |-- xgboost_le.joblib
+|   |-- autoencoder_model.h5
+|   |-- autoencoder_threshold.json
+|   |-- cnn_model.h5
+|
+|-- frontend/                   # Frontend files
+|   |-- templates/              # HTML templates
+|   |   |-- dashboard.html
+|   |   |-- alerts.html
+|   |   |-- reports.html
+|   |   |-- settings.html
+|   |-- static/
+|       |-- css/style.css
+|       |-- js/main.js
+|
+|-- data/                       # Data files
+|   |-- kaggle_dataset/         # Training dataset
+|   |-- processed/              # Processed data
+|   |-- raw/                    # Raw captures
+|   |-- simulations/            # Simulated data
+|
+|-- reports/                    # Generated reports
+|-- logs/                       # Log files
+|
+|-- run.py                      # Main entry point
+|-- demo.py                     # Demo script
+|-- train_all_models.py         # Model training script
+|-- download_dataset.py         # Dataset downloader
+|-- requirements.txt            # Python dependencies
+|-- runtime.txt                 # Python version for Render
+|-- .python-version             # Python version
+|-- README.md                   # Project readme
+|-- USER_MANUAL.md              # User guide
+|-- DEMO_GUIDE.md               # Demo/presentation guide
+
+================================================================================
+10. INSTALLATION GUIDE
+================================================================================
+
+PREREQUISITES:
+--------------
+1. Python 3.8 or higher (recommended: 3.10)
+2. pip (Python package manager)
+3. Git
+4. 2GB+ free disk space
+5. Internet connection (for dependencies)
+
+STEP-BY-STEP INSTALLATION:
+--------------------------
+
+Step 1: Clone the repository
+----------------------------
+git clone https://github.com/<username>/VNC-PROJECT.git
+cd VNC-PROJECT
+
+Step 2: Create virtual environment (recommended)
+------------------------------------------------
+python -m venv venv
+
+# Activate on Windows:
+venv\Scripts\activate
+
+# Activate on Linux/Mac:
+source venv/bin/activate
+
+Step 3: Install dependencies
+----------------------------
+pip install -r requirements.txt
+
+This installs:
+- Flask and extensions
+- ML libraries (scikit-learn, xgboost)
+- Data processing (pandas, numpy)
+- Visualization (matplotlib, plotly)
+- Report generation (reportlab, fpdf2)
+
+Step 4: Download dataset (for training)
+---------------------------------------
+python download_dataset.py
+
+This downloads the Kaggle cybersecurity dataset to:
+data/kaggle_dataset/cybersecurity_dataset.csv
+
+Step 5: Train models (if not already trained)
+---------------------------------------------
+python train_all_models.py
+
+This creates model files in the models/ folder.
+
+================================================================================
+11. RUNNING THE SYSTEM
+================================================================================
+
+METHOD 1: Using run.py (Recommended)
+------------------------------------
+python run.py
+
+Options:
+  --port 5000       Port to run on (default: 5000)
+  --host 0.0.0.0    Host to bind to (default: 0.0.0.0)
+  --debug           Enable debug mode
+  --no-browser      Don't open browser automatically
+  --train           Train models before starting
+
+METHOD 2: Using start.bat (Windows)
+-----------------------------------
+Double-click start.bat
+
+METHOD 3: Direct Flask run
+--------------------------
+python backend/app.py
+
+METHOD 4: Production with Gunicorn
+----------------------------------
+gunicorn backend.app:app --bind 0.0.0.0:5000
+
+ACCESSING THE DASHBOARD:
+------------------------
+Open your browser and go to:
+http://localhost:5000
+
+================================================================================
+12. DASHBOARD FEATURES
+================================================================================
+
+A. TOP NAVIGATION BAR
+---------------------
+- Search box (for logs)
+- Notification bell (alert count)
+- Admin profile
+
+B. LEFT SIDEBAR
+---------------
+- Dashboard: Main monitoring page
+- Alerts: All security alerts
+- Reports: Generate reports
+- Settings: System configuration
+- Online/Offline status indicator
+
+C. MAIN DASHBOARD SECTIONS
+--------------------------
+
+1. Real-time Traffic Chart
+   - X-axis: Time
+   - Y-axis: Event count
+   - Green line: Normal traffic
+   - Yellow line: Suspicious traffic
+   - Red line: Attacks
+
+2. Attack Distribution Chart
+   - Horizontal bar chart
+   - Shows count of each attack type
+   - Types: DDoS, Malware, PortScan, etc.
+
+3. Recent Alerts Panel
+   - Shows latest security alerts
+   - Color-coded by severity:
+     * Green: Safe/Info
+     * Yellow: Warning
+     * Red: Danger
+   - "Clear All" button to dismiss
+
+4. ML Model Status
+   - Shows each model's status
+   - Green "Loaded": Model is active
+   - Red "Not Loaded": Model failed
+   - "Reload Models" button
+
+D. ACTION BUTTONS
+-----------------
+
+1. Simulate Normal Traffic
+   - Generates safe VNC packets
+   - Chart shows green spike
+   - No alerts triggered
+
+2. Simulate Attack
+   - Generates random attack type
+   - Chart shows red spike
+   - Alert appears with protection advice
+
+3. Test Prediction
+   - Sends single test packet
+   - Shows toast notification with result
+
+4. Generate Report
+   - Creates PDF security report
+   - Includes stats and alerts
+
+================================================================================
+13. API ENDPOINTS (FULL REFERENCE)
+================================================================================
+
+BASE URL: http://localhost:5000
+
+--------------------------------------------------------------------------------
+A. DASHBOARD ROUTES (HTML Pages)
+--------------------------------------------------------------------------------
+
+GET /
+  Returns: dashboard.html (main page)
+
+GET /alerts
+  Returns: alerts.html (alerts page)
+
+GET /reports
+  Returns: reports.html (reports page)
+
+GET /settings
+  Returns: settings.html (settings page)
+
+--------------------------------------------------------------------------------
+B. HEALTH & STATUS APIs
+--------------------------------------------------------------------------------
+
+GET /api/health
+  Description: Check if server is running
+  Response:
+  {
+    "status": "healthy",
+    "timestamp": "2026-02-02T10:30:00",
+    "version": "1.0.0"
+  }
+
+GET /api/ml/status
+  Description: Get ML model status
+  Response:
+  {
+    "ensemble_ready": true,
+    "models_loaded": 3,
+    "models": {
+      "random_forest": {"loaded": true, "accuracy": 0.85},
+      "svm": {"loaded": true, "accuracy": 0.78},
+      "xgboost": {"loaded": true, "accuracy": 0.82}
+    }
+  }
+
+--------------------------------------------------------------------------------
+C. TRAFFIC & STATS APIs
+--------------------------------------------------------------------------------
+
+GET /api/stats
+  Description: Get dashboard statistics
+  Response:
+  {
+    "total_connections": 150,
+    "active_threats": 5,
+    "safe_count": 120,
+    "danger_count": 30,
+    "threat_level": "medium",
+    "attack_distribution": {
+      "DoS": 15,
+      "PortScan": 10,
+      "Malware": 5
+    }
+  }
+
+GET /api/traffic?limit=60
+  Description: Get recent traffic records
+  Parameters:
+    - limit: Number of records (default: 60)
+  Response: Array of traffic records
+
+GET /api/alerts?limit=50&severity=danger
+  Description: Get security alerts
+  Parameters:
+    - limit: Number of alerts (default: 50)
+    - severity: Filter by severity (safe/warning/danger)
+  Response: Array of alert objects
+
+DELETE /api/alerts
+  Description: Clear all alerts
+  Response:
+  {
+    "success": true,
+    "cleared": 25
+  }
+
+--------------------------------------------------------------------------------
+D. SIMULATION APIs
+--------------------------------------------------------------------------------
+
+POST /api/simulate
+  Description: Simulate VNC traffic
+  Request Body:
+  {
+    "attack_type": "DoS"  // or "Normal", "PortScan", "Malware"
+  }
+  Response:
+  {
+    "success": true,
+    "attack_type": "DoS",
+    "records_generated": 10,
+    "prediction": "DoS",
+    "confidence": 0.95
+  }
+
+--------------------------------------------------------------------------------
+E. PREDICTION API
+--------------------------------------------------------------------------------
+
+POST /api/predict
+  Description: Predict if traffic is attack
+  Request Body:
+  {
+    "PacketSize": 500,
+    "ResponseTime": 20,
+    "Protocol": "TCP",
+    "SrcIP": "192.168.1.50",
+    "DstIP": "10.0.0.5",
+    "SrcPort": 443,
+    "DstPort": 5900,
+    "PacketRate": 50,
+    "FlowDuration": 5,
+    "NumPackets": 20,
+    "PayloadSize": 100,
+    "FlagCount": 0,
+    "AnomalyScore": 0,
+    "Entropy": 0.5,
+    "BytesSent": 500,
+    "BytesReceived": 500,
+    "FlowRate": 100,
+    "ActiveTime": 1,
+    "IdleTime": 0
+  }
+  Response:
+  {
+    "prediction": "Normal",
+    "confidence": 0.92,
+    "model_votes": {
+      "random_forest": "Normal",
+      "svm": "Normal",
+      "xgboost": "Normal"
+    },
+    "advice": null
+  }
+
+--------------------------------------------------------------------------------
+F. REPORT APIs
+--------------------------------------------------------------------------------
+
+POST /api/reports/generate
+  Description: Generate security report
+  Response:
+  {
+    "success": true,
+    "report": {
+      "id": "RPT-2026-001",
+      "generated_at": "2026-02-02T10:30:00",
+      "summary": {...},
+      "alerts": [...]
+    }
+  }
+
+GET /api/reports/download/<report_id>
+  Description: Download report as PDF
+  Response: PDF file
+
+--------------------------------------------------------------------------------
+G. MODEL MANAGEMENT APIs
+--------------------------------------------------------------------------------
+
+POST /api/ml/reload
+  Description: Reload all ML models
+  Response:
+  {
+    "success": true,
+    "status": "Models reloaded successfully"
+  }
+
+================================================================================
+14. ATTACK TYPES DETECTED
+================================================================================
+
+1. DoS (Denial of Service)
+--------------------------
+Description: Flooding server with requests to make it unavailable
+Indicators:
+- Very high packet rate (>1000/sec)
+- Many packets from single source
+- Small payload sizes
+Protection:
+- Block source IP
+- Rate limiting
+- DDoS mitigation service
+
+2. DDoS (Distributed DoS)
+-------------------------
+Description: DoS from multiple sources
+Indicators:
+- High packet rate from many IPs
+- Synchronized timing
+- Similar packet patterns
+Protection:
+- Cloud-based DDoS protection
+- Traffic scrubbing
+- Anycast network
+
+3. Port Scan
+------------
+Description: Scanning for open ports to find vulnerabilities
+Indicators:
+- Connections to many ports
+- Sequential port numbers
+- Quick connection/disconnect
+Protection:
+- Block scanning IPs
+- Port knocking
+- Reduce exposed ports
+
+4. Malware
+----------
+Description: Malicious software communication
+Indicators:
+- Unusual payload entropy
+- Known malware signatures
+- Suspicious C2 communication
+Protection:
+- Antivirus/EDR
+- Network segmentation
+- Block known malware IPs
+
+5. File Exfiltration
+--------------------
+Description: Stealing files through VNC
+Indicators:
+- Large data transfers (>100MB)
+- Unusual transfer times
+- Bulk file access
+Protection:
+- DLP (Data Loss Prevention)
+- Monitor large transfers
+- Encrypt sensitive files
+
+6. Clipboard Hijacking
+----------------------
+Description: Stealing clipboard data
+Indicators:
+- High clipboard command frequency
+- Large clipboard data size
+- Unusual copy patterns
+Protection:
+- Disable clipboard sharing
+- Monitor clipboard activity
+- Clear clipboard on disconnect
+
+7. Screen Capture
+-----------------
+Description: Capturing screen content
+Indicators:
+- High framebuffer request rate
+- Full screen updates
+- Regular interval captures
+Protection:
+- Detect screen recording
+- Watermark sensitive screens
+- Limit framebuffer rate
+
+8. Keylogging
+-------------
+Description: Recording keyboard input
+Indicators:
+- High key event frequency
+- Key timing patterns
+- Unusual input sequences
+Protection:
+- Virtual keyboards for sensitive input
+- Monitor key event patterns
+- Encrypt keyboard data
+
+================================================================================
+15. CONFIGURATION OPTIONS
+================================================================================
+
+Configuration file: backend/config.py
+
+GENERAL SETTINGS:
+-----------------
+SECRET_KEY          # Flask secret key
+DEBUG               # Enable debug mode (True/False)
+HOST                # Server host (0.0.0.0)
+PORT                # Server port (5000)
+
+VNC MONITORING:
+---------------
+VNC_PORT_START      # First VNC port (5900)
+VNC_PORT_END        # Last VNC port (5910)
+MONITORING_INTERVAL # Check interval in seconds (5)
+
+DATA DIRECTORIES:
+-----------------
+DATA_DIR            # Base data directory
+RAW_DATA_DIR        # Raw capture data
+PROCESSED_DATA_DIR  # Processed data
+SIMULATIONS_DIR     # Simulated data
+MODELS_DIR          # Trained models
+REPORTS_DIR         # Generated reports
+LOG_DIR             # Log files
+
+ALERT SETTINGS:
+---------------
+MAX_ALERTS          # Maximum alerts to store (100)
+ALERT_RETENTION_HOURS  # Hours to keep alerts (24)
+
+ENVIRONMENT VARIABLES:
+----------------------
+FLASK_ENV           # development/production
+PORT                # Server port (for Render)
+PYTHONUNBUFFERED    # 1 (for logging)
+SECRET_KEY          # Override secret key
+
+================================================================================
+16. DEPLOYMENT GUIDE (RENDER)
+================================================================================
+
+Render is a cloud platform for deploying web applications.
+
+PREREQUISITES:
+--------------
+1. GitHub account with repo pushed
+2. Render account (free tier available)
+
+STEP-BY-STEP DEPLOYMENT:
+------------------------
+
+Step 1: Push to GitHub
+----------------------
+Make sure all files are pushed:
+git add -A
+git commit -m "final commit"
+git push
+
+Step 2: Create Render Web Service
+---------------------------------
+1. Go to https://render.com
+2. Click "New" -> "Web Service"
+3. Connect your GitHub repo
+4. Select the repository
+
+Step 3: Configure Settings
+--------------------------
+Name: VNC-PROJECT (or any name)
+Region: Choose closest to you
+Branch: main
+Runtime: Python 3
+Root Directory: (leave blank)
+
+Build Command:
+pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
+
+Start Command:
+gunicorn backend.app:app --bind 0.0.0.0:$PORT
+
+Step 4: Environment Variables
+-----------------------------
+Add these:
+FLASK_ENV = production
+PYTHONUNBUFFERED = 1
+
+Step 5: Instance Type
+---------------------
+Select "Free" for testing
+(Note: Free tier sleeps after 15 min inactivity)
+
+Step 6: Deploy
+--------------
+Click "Create Web Service"
+Wait for build and deploy (5-10 minutes)
+
+Step 7: Access Your Site
+------------------------
+Render provides URL like:
+https://vnc-project.onrender.com
+
+IMPORTANT FILES FOR RENDER:
+---------------------------
+- requirements.txt (dependencies)
+- runtime.txt (Python version: python-3.10.13)
+- .python-version (3.10.13)
+- models/*.joblib (trained models)
+
+TROUBLESHOOTING RENDER:
+-----------------------
+1. Build fails with numpy error:
+   - Make sure Python 3.10 is specified
+   - Use flexible version ranges in requirements.txt
+
+2. Models not loaded:
+   - Check if model files are in .gitignore
+   - Remove from .gitignore and push again
+
+3. 502 Bad Gateway:
+   - Check Render logs for errors
+   - Verify gunicorn command is correct
+
+================================================================================
+17. TROUBLESHOOTING
+================================================================================
+
+PROBLEM: Dashboard shows "Offline"
+----------------------------------
+Cause: Browser cannot reach the Flask server
+Solutions:
+1. Check if terminal shows "Running on http://..."
+2. Refresh the page (Ctrl+R)
+3. Check if port 5000 is available
+4. Disable firewall temporarily
+
+PROBLEM: ML Models show "Not Loaded"
+------------------------------------
+Cause: Model files missing or corrupted
+Solutions:
+1. Run: python train_all_models.py
+2. Check models/ folder for .joblib files
+3. Check terminal for error messages
+4. Verify dataset exists in data/kaggle_dataset/
+
+PROBLEM: "ModuleNotFoundError"
+------------------------------
+Cause: Dependencies not installed
+Solutions:
+1. Activate virtual environment
+2. Run: pip install -r requirements.txt
+3. Check Python version (need 3.8+)
+
+PROBLEM: TensorFlow not available
+---------------------------------
+Cause: TensorFlow not installed
+Solutions:
+1. Install: pip install tensorflow
+2. Or skip CNN/Autoencoder models (system works without them)
+
+PROBLEM: Charts not updating
+----------------------------
+Cause: JavaScript error or API issue
+Solutions:
+1. Open browser console (F12)
+2. Check for errors
+3. Verify /api/stats returns data
+4. Clear browser cache (Ctrl+Shift+R)
+
+PROBLEM: Simulation not working
+-------------------------------
+Cause: Attack simulator error
+Solutions:
+1. Check terminal for errors
+2. Verify models are loaded
+3. Check /api/simulate endpoint
+
+PROBLEM: PDF report fails
+-------------------------
+Cause: ReportLab not installed
+Solutions:
+1. Install: pip install reportlab fpdf2
+2. Check reports/ folder permissions
+
+================================================================================
+18. FUTURE IMPROVEMENTS
+================================================================================
+
+1. Real VNC Traffic Capture
+   - Integrate with Scapy for real packet capture
+   - Parse VNC protocol messages
+   - Real-time network monitoring
+
+2. More ML Models
+   - LSTM for sequential patterns
+   - Transformer models
+   - Federated learning
+
+3. Database Integration
+   - PostgreSQL for persistent storage
+   - Redis for caching
+   - Time-series database for metrics
+
+4. Authentication
+   - User login system
+   - Role-based access control
+   - API key authentication
+
+5. Advanced Visualization
+   - 3D network graphs
+   - Geo-location mapping
+   - Attack timeline view
+
+6. Email Alerts
+   - Send alerts via email
+   - Slack/Teams integration
+   - SMS notifications
+
+7. Auto-blocking
+   - Automatic IP blocking
+   - Integration with firewall
+   - Quarantine suspicious connections
+
+8. Mobile App
+   - React Native app
+   - Push notifications
+   - Remote monitoring
+
+================================================================================
+                              END OF DOCUMENTATION
+================================================================================
+
+For questions or support:
+- Check README.md for quick reference
+- Check USER_MANUAL.md for user guide
+- Check DEMO_GUIDE.md for presentation tips
+
+This system is designed for educational and demonstration purposes.
+For production use, additional security measures are recommended.
+
+================================================================================
