@@ -619,6 +619,26 @@
 
         // Initialize
         loadStats();
+
+        // ---- Sidebar collapse ----
+        (function() {
+            const sidebar = document.querySelector('.sidebar');
+            const mainContent = document.querySelector('.main-content');
+            const btn = document.getElementById('menu-toggle');
+            if (localStorage.getItem('sidebarCollapsed') === 'true') {
+                sidebar && sidebar.classList.add('collapsed');
+                mainContent && mainContent.classList.add('sidebar-collapsed');
+            }
+            btn && btn.addEventListener('click', () => {
+                if (window.innerWidth <= 768) {
+                    sidebar && sidebar.classList.toggle('active');
+                } else {
+                    const c = sidebar && sidebar.classList.toggle('collapsed');
+                    mainContent && mainContent.classList.toggle('sidebar-collapsed', c);
+                    localStorage.setItem('sidebarCollapsed', c ? 'true' : 'false');
+                }
+            });
+        })();
     </script>
 </body>
 </html>
