@@ -15,7 +15,8 @@ const CONFIG = {
 // Global state
 let state = {
     isPolling: false,
-    pollTimer: null
+    pollTimer: null,
+    seenDangerAlertIds: new Set()
 };
 
 // ============ INITIALIZATION ============
@@ -77,10 +78,26 @@ function bindEvents() {
 function initializeUI() {
     const menuToggle = document.getElementById('menu-toggle');
     const sidebar = document.querySelector('.sidebar');
-    
+    const mainContent = document.querySelector('.main-content');
+
+    // Restore sidebar state from localStorage
+    if (localStorage.getItem('sidebarCollapsed') === 'true') {
+        sidebar && sidebar.classList.add('collapsed');
+        mainContent && mainContent.classList.add('sidebar-collapsed');
+    }
+
     if (menuToggle) {
         menuToggle.addEventListener('click', () => {
-            sidebar.classList.toggle('active');
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                // Mobile: slide in/out
+                sidebar && sidebar.classList.toggle('active');
+            } else {
+                // Desktop: collapse to icon rail
+                const isNowCollapsed = sidebar && sidebar.classList.toggle('collapsed');
+                mainContent && mainContent.classList.toggle('sidebar-collapsed', isNowCollapsed);
+                localStorage.setItem('sidebarCollapsed', isNowCollapsed ? 'true' : 'false');
+            }
         });
     }
 }
@@ -199,6 +216,14 @@ async function pollData() {
         // Fetch alerts
         const alertsData = await apiRequest('/api/alerts?limit=10');
         updateAlerts(alertsData.alerts || []);
+
+        // Fetch active connections
+        const connectionsData = await apiRequest('/api/connections/active?minutes=5&limit=20');
+        updateActiveConnections(connectionsData.connections || []);
+
+        // Build hourly heatmap from larger alert window
+        const heatmapData = await apiRequest('/api/alerts?limit=300');
+        updateAttackHeatmap(heatmapData.alerts || []);
         
         // If we got here, system is online
         updateSystemStatus(true);
@@ -252,19 +277,110 @@ function updateAlerts(alerts) {
         if (alert.details && alert.details.protection_advice) {
             adviceHtml = `<div class="alert-advice"><i class="fas fa-shield-alt"></i> ${alert.details.protection_advice}</div>`;
         }
-        
+
+        // Show IP if available
+        const ip = alert.source_ip || (() => {
+            const d = alert.details || {};
+            return d.SrcIP || d.src_ip || (d.traffic && (d.traffic.SrcIP || d.traffic.src_ip)) || '';
+        })();
+        const ipHtml = ip
+            ? `<div class="alert-ip" style="font-size:11px;color:#60a5fa;font-family:monospace;margin-top:2px"><i class="fas fa-network-wired" style="margin-right:4px"></i><a href="/alerts?source_ip=${encodeURIComponent(ip)}" style="color:#60a5fa;text-decoration:none">${ip}</a></div>`
+            : '';
+
         return `
             <div class="alert-item ${severityClass}">
                 <div class="alert-icon"><i class="fas fa-exclamation-circle"></i></div>
                 <div class="alert-content">
                     <div class="alert-title">${alert.type || 'Alert'}</div>
                     <div class="alert-message">${alert.message || ''}</div>
+                    ${ipHtml}
                     ${adviceHtml}
                 </div>
                 <div class="alert-time">${formatAlertTime(alert.timestamp)}</div>
             </div>
         `;
     }).join('');
+
+    maybeNotifyDangerAlerts(alerts);
+}
+
+function updateActiveConnections(connections) {
+    const tbody = document.getElementById('connections-body');
+    if (!tbody) return;
+
+    if (!connections || connections.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">No active connections</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = connections.map(conn => {
+        const source = `${conn.src_ip || '-'}:${conn.src_port || '-'}`;
+        const destination = `${conn.dst_ip || '-'}:${conn.dst_port || '-'}`;
+        const status = (conn.status || 'active').toLowerCase();
+        const badgeClass = status === 'blocked' ? 'blocked' : 'active';
+        return `
+            <tr>
+                <td><code>${source}</code></td>
+                <td><code>${destination}</code></td>
+                <td>${conn.protocol || 'TCP'}</td>
+                <td>${(conn.packet_count || 0).toLocaleString()}</td>
+                <td>${(conn.bytes || 0).toLocaleString()}</td>
+                <td><span class="connection-status ${badgeClass}">${status.toUpperCase()}</span></td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function updateAttackHeatmap(alerts) {
+    const grid = document.getElementById('attack-heatmap');
+    if (!grid) return;
+
+    const hourlyCounts = new Array(24).fill(0);
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    (alerts || []).forEach(alert => {
+        const severity = String(alert.severity || '').toLowerCase();
+        if (severity !== 'danger' && severity !== 'warning') return;
+        const ts = new Date(alert.timestamp);
+        if (isNaN(ts.getTime()) || ts < cutoff) return;
+        hourlyCounts[ts.getHours()] += 1;
+    });
+
+    const maxCount = Math.max(...hourlyCounts, 1);
+    grid.innerHTML = hourlyCounts.map((count, hour) => {
+        const ratio = count / maxCount;
+        let level = 0;
+        if (ratio > 0 && ratio <= 0.33) level = 1;
+        else if (ratio > 0.33 && ratio <= 0.66) level = 2;
+        else if (ratio > 0.66) level = 3;
+
+        return `<div class="heatmap-cell" data-level="${level}" title="${String(hour).padStart(2, '0')}:00 - ${count} attack(s)">${hour}</div>`;
+    }).join('');
+}
+
+function maybeNotifyDangerAlerts(alerts) {
+    const settings = JSON.parse(localStorage.getItem('vncSettings') || '{}');
+    const notificationsEnabled = settings['enable-alerts'] !== false && settings['desktop-notifications'] !== false;
+    if (!notificationsEnabled || !('Notification' in window)) return;
+
+    if (Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
+        return;
+    }
+
+    if (Notification.permission !== 'granted') return;
+
+    (alerts || []).forEach(alert => {
+        const severity = String(alert.severity || '').toLowerCase();
+        const id = alert.id;
+        if (severity !== 'danger' || !id || state.seenDangerAlertIds.has(id)) return;
+
+        state.seenDangerAlertIds.add(id);
+        const title = `Threat detected: ${alert.type || 'Attack'}`;
+        const body = `${alert.message || 'Dangerous activity detected'}${alert.source_ip ? ' | IP: ' + alert.source_ip : ''}`;
+        new Notification(title, { body });
+    });
 }
 
 function formatAlertTime(timestamp) {
