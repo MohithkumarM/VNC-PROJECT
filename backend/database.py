@@ -62,21 +62,37 @@ class Database:
             'ml_models_loaded': False,
             'last_prediction_time': None
         }
+
+        # Security controls
+        self.blocked_ips = set()
     
     # ==================== Alert Methods ====================
     
-    def add_alert(self, alert_type, severity, message, details=None):
+    def add_alert(self, alert_type, severity, message, details=None, source_ip=None):
         """Add a new alert to the database"""
         with self._lock:
             # Sanitize details to ensure JSON serializable
             sanitized_details = _sanitize_for_json(details) if details else {}
-            
+
+            # Also try to extract source_ip from details if not provided directly
+            if not source_ip and sanitized_details:
+                traffic = sanitized_details.get('traffic', {})
+                source_ip = (
+                    sanitized_details.get('SrcIP') or
+                    sanitized_details.get('src_ip') or
+                    traffic.get('SrcIP') or
+                    traffic.get('src_ip') or
+                    ''
+                )
+
             alert = {
                 'id': len(self.alerts) + 1,
                 'timestamp': datetime.now().isoformat(),
                 'type': str(alert_type),  # Ensure string
+                'alert_type': str(alert_type),
                 'severity': severity,  # 'safe', 'suspicious', 'danger'
                 'message': str(message),  # Ensure string
+                'source_ip': str(source_ip) if source_ip else '',
                 'details': sanitized_details,
                 'acknowledged': False
             }
@@ -99,6 +115,11 @@ class Database:
             # Filter by acknowledged status
             if acknowledged is not None:
                 alerts = [a for a in alerts if a['acknowledged'] == acknowledged]
+
+            # Ensure source_ip is always present for frontend consistency
+            for alert in alerts:
+                if 'source_ip' not in alert:
+                    alert['source_ip'] = ''
             
             # Sort by timestamp (newest first)
             alerts.sort(key=lambda x: x['timestamp'], reverse=True)
@@ -107,6 +128,15 @@ class Database:
             if limit:
                 alerts = alerts[:limit]
             
+            return alerts
+
+    def get_alerts_by_source_ip(self, source_ip, limit=None):
+        """Get alerts for a specific source IP"""
+        with self._lock:
+            alerts = [a for a in self.alerts if a.get('source_ip') == source_ip]
+            alerts.sort(key=lambda x: x['timestamp'], reverse=True)
+            if limit:
+                alerts = alerts[:limit]
             return alerts
     
     def acknowledge_alert(self, alert_id):
@@ -158,6 +188,83 @@ class Database:
                 records = records[:limit]
             
             return records
+
+    def get_active_connections(self, minutes=5, limit=100):
+        """Build active connection list from recent traffic records"""
+        with self._lock:
+            cutoff = datetime.now() - timedelta(minutes=minutes)
+            connection_map = {}
+
+            for record in self.traffic_records:
+                ts_raw = record.get('timestamp')
+                if not ts_raw:
+                    continue
+                try:
+                    ts = datetime.fromisoformat(ts_raw)
+                except Exception:
+                    continue
+
+                if ts < cutoff:
+                    continue
+
+                src_ip = record.get('SrcIP') or record.get('src_ip') or ''
+                dst_ip = record.get('DstIP') or record.get('dst_ip') or ''
+                src_port = record.get('SrcPort') or record.get('src_port') or ''
+                dst_port = record.get('DstPort') or record.get('dst_port') or ''
+                protocol = record.get('Protocol') or record.get('protocol') or 'TCP'
+
+                if not src_ip and not dst_ip:
+                    continue
+
+                key = f"{src_ip}:{src_port}-{dst_ip}:{dst_port}-{protocol}"
+                bytes_value = record.get('bytes', 0)
+                if not bytes_value:
+                    bytes_value = record.get('BytesSent', 0) + record.get('BytesReceived', 0)
+                if not bytes_value:
+                    bytes_value = record.get('PacketSize', 0)
+
+                if key not in connection_map:
+                    connection_map[key] = {
+                        'src_ip': src_ip,
+                        'dst_ip': dst_ip,
+                        'src_port': src_port,
+                        'dst_port': dst_port,
+                        'protocol': protocol,
+                        'packet_count': 0,
+                        'bytes': 0,
+                        'last_seen': ts_raw,
+                        'status': 'blocked' if src_ip in self.blocked_ips else 'active'
+                    }
+
+                connection_map[key]['packet_count'] += 1
+                connection_map[key]['bytes'] += bytes_value
+                if ts_raw > connection_map[key]['last_seen']:
+                    connection_map[key]['last_seen'] = ts_raw
+
+            connections = list(connection_map.values())
+            connections.sort(key=lambda x: x['last_seen'], reverse=True)
+            return connections[:limit]
+
+    # ==================== Blocklist Methods ====================
+
+    def get_blocked_ips(self):
+        """Get blocked IP list"""
+        with self._lock:
+            return sorted(self.blocked_ips)
+
+    def block_ip(self, ip_address):
+        """Block an IP address"""
+        with self._lock:
+            if ip_address:
+                self.blocked_ips.add(str(ip_address))
+            return {'success': True, 'blocked_ips': sorted(self.blocked_ips)}
+
+    def unblock_ip(self, ip_address):
+        """Unblock an IP address"""
+        with self._lock:
+            if ip_address in self.blocked_ips:
+                self.blocked_ips.remove(ip_address)
+            return {'success': True, 'blocked_ips': sorted(self.blocked_ips)}
     
     # ==================== Prediction Methods ====================
     
