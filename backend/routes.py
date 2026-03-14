@@ -160,8 +160,14 @@ def get_alerts():
     try:
         limit = request.args.get('limit', 50, type=int)
         severity = request.args.get('severity', None)
-        
-        alerts = db.get_alerts(limit=limit, severity=severity)
+        source_ip = request.args.get('source_ip', None)
+
+        if source_ip:
+            alerts = db.get_alerts_by_source_ip(source_ip=source_ip, limit=limit)
+            if severity:
+                alerts = [a for a in alerts if a.get('severity') == severity]
+        else:
+            alerts = db.get_alerts(limit=limit, severity=severity)
         
         return jsonify({
             'alerts': sanitize_json(alerts),
@@ -182,8 +188,12 @@ def create_alert():
             alert_type=data.get('type', 'manual'),
             severity=data.get('severity', 'suspicious'),
             message=data.get('message', 'Manual alert'),
-            details=data.get('details', {})
+            details=data.get('details', {}),
+            source_ip=data.get('source_ip', '')
         )
+
+        if alert.get('severity') == 'danger' and alert.get('source_ip'):
+            db.block_ip(alert.get('source_ip'))
         
         return jsonify({'success': True, 'alert': alert})
     except Exception as e:
@@ -233,12 +243,16 @@ def predict():
             is_danger = prediction.get('threat_level', 'SAFE') == 'DANGER'
             
             if is_danger:
+                source_ip = data.get('SrcIP', data.get('src_ip', ''))
                 db.add_alert(
                     alert_type=label,
                     severity='danger',
                     message=f"Attack detected! {label} - {prediction.get('details')}",
-                    details=sanitize_json(prediction)
+                    details=sanitize_json(prediction),
+                    source_ip=source_ip
                 )
+                if source_ip:
+                    db.block_ip(source_ip)
         else:
             # Fallback - ML models not loaded
             prediction = {
@@ -350,19 +364,24 @@ def simulate_attack():
                     # Check if this is an attack (not Normal/Safe)
                     is_attack = pred_label not in ['NORMAL', 'SAFE'] or threat_level == 'DANGER'
                     
+                    _src_ip = traffic.get('SrcIP', traffic.get('src_ip', ''))
                     if is_attack:
                         db.add_alert(
                             alert_type=prediction.get('prediction', attack_type),
                             severity='danger',
                             message=f"Attack detected: {prediction.get('prediction', attack_type)}",
-                            details={'prediction': prediction, 'traffic': sanitize_json(traffic)}
+                            details={'prediction': prediction, 'traffic': sanitize_json(traffic)},
+                            source_ip=_src_ip
                         )
+                        if _src_ip:
+                            db.block_ip(_src_ip)
                     elif threat_level == 'SUSPICIOUS':
                         db.add_alert(
                             alert_type=attack_type,
                             severity='warning',
                             message=f"Suspicious: {attack_type.replace('_', ' ').title()}",
-                            details={'prediction': prediction}
+                            details={'prediction': prediction, 'traffic': sanitize_json(traffic)},
+                            source_ip=_src_ip
                         )
             
             return jsonify({
@@ -376,6 +395,70 @@ def simulate_attack():
                 'success': False,
                 'error': f'Attack simulator not available: {e}'
             }), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api.route('/api/connections/active')
+def get_active_connections():
+    """Get active network connections"""
+    try:
+        minutes = request.args.get('minutes', 5, type=int)
+        limit = request.args.get('limit', 100, type=int)
+        connections = db.get_active_connections(minutes=minutes, limit=limit)
+        return jsonify({
+            'connections': sanitize_json(connections),
+            'count': len(connections),
+            'window_minutes': minutes,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api.route('/api/alerts/history')
+def get_alert_history_by_ip():
+    """Get alert history for a specific source IP"""
+    try:
+        source_ip = request.args.get('source_ip', '', type=str)
+        limit = request.args.get('limit', 50, type=int)
+        if not source_ip:
+            return jsonify({'error': 'source_ip is required'}), 400
+
+        alerts = db.get_alerts_by_source_ip(source_ip=source_ip, limit=limit)
+        return jsonify({
+            'source_ip': source_ip,
+            'alerts': sanitize_json(alerts),
+            'count': len(alerts),
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api.route('/api/blocklist', methods=['GET', 'POST', 'DELETE'])
+def blocklist_api():
+    """Manage blocked source IP list"""
+    try:
+        if request.method == 'GET':
+            ips = db.get_blocked_ips()
+            return jsonify({
+                'blocked_ips': ips,
+                'count': len(ips),
+                'timestamp': datetime.now().isoformat()
+            })
+
+        data = request.get_json(silent=True) or {}
+        ip_address = data.get('ip', '').strip()
+        if not ip_address:
+            return jsonify({'error': 'ip is required'}), 400
+
+        if request.method == 'POST':
+            result = db.block_ip(ip_address)
+            return jsonify(result)
+
+        result = db.unblock_ip(ip_address)
+        return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
