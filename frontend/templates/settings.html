@@ -28,6 +28,13 @@
         .input-field { width: 150px; padding: 8px 12px; background: var(--bg-tertiary); border: none; border-radius: 6px; color: var(--text-primary); font-size: 14px; }
         .select-field { width: 150px; padding: 8px 12px; background: var(--bg-tertiary); border: none; border-radius: 6px; color: var(--text-primary); font-size: 14px; cursor: pointer; }
         .save-section { margin-top: 30px; display: flex; justify-content: flex-end; gap: 15px; }
+        .blocklist-tools { display: flex; gap: 10px; margin-bottom: 10px; }
+        .blocklist-tools input { flex: 1; }
+        .blocklist-list { max-height: 210px; overflow-y: auto; border: 1px solid var(--bg-tertiary); border-radius: 8px; }
+        .block-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--bg-tertiary); }
+        .block-item:last-child { border-bottom: none; }
+        .block-ip { font-family: monospace; color: #60a5fa; }
+        .mini-btn { padding: 6px 10px; font-size: 12px; }
         @media (max-width: 900px) { .settings-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
@@ -135,6 +142,16 @@
                     </div>
                     <div class="setting-item">
                         <div class="setting-info">
+                            <h4>Desktop Notifications</h4>
+                            <p>Show browser pop-ups for danger alerts</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="desktop-notifications" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
                             <h4>Alert Threshold</h4>
                             <p>Minimum severity to trigger alert</p>
                         </div>
@@ -207,6 +224,21 @@
                         <input type="number" class="input-field" value="10000" min="1000" max="100000" id="max-records">
                     </div>
                 </div>
+
+                <!-- Blocklist Settings -->
+                <div class="settings-card">
+                    <h3><i class="fas fa-ban"></i> IP Blocklist</h3>
+                    <div class="blocklist-tools">
+                        <input type="text" class="input-field" id="block-ip-input" placeholder="Enter IP address (e.g. 185.220.101.47)">
+                        <button class="btn-primary mini-btn" onclick="addBlockedIp()"><i class="fas fa-plus"></i> Add</button>
+                    </div>
+                    <div class="setting-info" style="margin-bottom:8px">
+                        <p>Dangerous source IPs are auto-added. You can also manage them manually.</p>
+                    </div>
+                    <div class="blocklist-list" id="blocklist-list">
+                        <div class="block-item"><span class="setting-info"><p>Loading blocklist...</p></span></div>
+                    </div>
+                </div>
             </div>
 
             <div class="save-section">
@@ -246,6 +278,7 @@
                 'poll-interval': document.getElementById('poll-interval').value,
                 'enable-alerts': document.getElementById('enable-alerts').checked,
                 'sound-alerts': document.getElementById('sound-alerts').checked,
+                'desktop-notifications': document.getElementById('desktop-notifications').checked,
                 'alert-threshold': document.getElementById('alert-threshold').value,
                 'ml-enabled': document.getElementById('ml-enabled').checked,
                 'detection-model': document.getElementById('detection-model').value,
@@ -265,6 +298,60 @@
             location.reload();
         }
 
+        async function loadBlocklist() {
+            try {
+                const res = await fetch('/api/blocklist');
+                const data = await res.json();
+                const list = document.getElementById('blocklist-list');
+                const ips = data.blocked_ips || [];
+                if (!ips.length) {
+                    list.innerHTML = '<div class="block-item"><span class="setting-info"><p>No blocked IPs</p></span></div>';
+                    return;
+                }
+                list.innerHTML = ips.map(ip => `
+                    <div class="block-item">
+                        <span class="block-ip">${ip}</span>
+                        <button class="btn-secondary mini-btn" onclick="removeBlockedIp('${ip}')"><i class="fas fa-unlock"></i> Unblock</button>
+                    </div>
+                `).join('');
+            } catch (e) {
+                const list = document.getElementById('blocklist-list');
+                list.innerHTML = '<div class="block-item"><span class="setting-info"><p>Failed to load blocklist</p></span></div>';
+            }
+        }
+
+        async function addBlockedIp() {
+            const input = document.getElementById('block-ip-input');
+            const ip = (input.value || '').trim();
+            if (!ip) return;
+            try {
+                await fetch('/api/blocklist', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ip })
+                });
+                input.value = '';
+                showToast('success', 'IP Blocked', `${ip} added to blocklist`);
+                loadBlocklist();
+            } catch (e) {
+                showToast('danger', 'Error', 'Could not block IP');
+            }
+        }
+
+        async function removeBlockedIp(ip) {
+            try {
+                await fetch('/api/blocklist', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ip })
+                });
+                showToast('success', 'IP Unblocked', `${ip} removed from blocklist`);
+                loadBlocklist();
+            } catch (e) {
+                showToast('danger', 'Error', 'Could not unblock IP');
+            }
+        }
+
         function showToast(type, title, message) {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -275,6 +362,27 @@
         }
 
         loadSettings();
+        loadBlocklist();
+
+        // ---- Sidebar collapse ----
+        (function() {
+            const sidebar = document.querySelector('.sidebar');
+            const mainContent = document.querySelector('.main-content');
+            const btn = document.getElementById('menu-toggle');
+            if (localStorage.getItem('sidebarCollapsed') === 'true') {
+                sidebar && sidebar.classList.add('collapsed');
+                mainContent && mainContent.classList.add('sidebar-collapsed');
+            }
+            btn && btn.addEventListener('click', () => {
+                if (window.innerWidth <= 768) {
+                    sidebar && sidebar.classList.toggle('active');
+                } else {
+                    const c = sidebar && sidebar.classList.toggle('collapsed');
+                    mainContent && mainContent.classList.toggle('sidebar-collapsed', c);
+                    localStorage.setItem('sidebarCollapsed', c ? 'true' : 'false');
+                }
+            });
+        })();
     </script>
 </body>
 </html>
